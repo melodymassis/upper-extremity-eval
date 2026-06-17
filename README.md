@@ -42,79 +42,99 @@ If those variables are not configured, the app falls back to demo public evidenc
 
 The app does not send patient identifiers to Bright Data. The evidence request only uses the top-ranked clinical pattern, region, and selected findings.
 
-## Video Script
+## Problem
 
-### 1. The Problem
+Upper-extremity evaluations can be complex and cognitively demanding. Clinicians often need to collect patient context, symptom behavior, range of motion, strength, special tests, referral considerations, functional limitations, and goals before synthesizing a clinical impression and treatment direction.
 
-Hi, I am Melody, and I built an upper-extremity evaluation assistant for occupational and physical therapists.
+This prototype supports licensed occupational and physical therapists by structuring the evaluation workflow, surfacing likely clinical patterns, and connecting findings to evidence-informed treatment considerations.
 
-The problem I am solving is that clinical evaluations are complex, especially for upper-extremity conditions like carpal tunnel syndrome, rotator cuff-related shoulder pain, lateral elbow tendinopathy, De Quervain's, and thumb CMC osteoarthritis.
+The goal is not to diagnose patients or replace clinical judgment. The goal is to reduce cognitive load, improve consistency, and help clinicians move from findings to structured reasoning more efficiently.
 
-A therapist has to collect patient context, symptoms, range of motion, strength, special tests, red flags, functional limitations, and goals. Then they need to synthesize all of that into a clinical impression and treatment direction.
+## Why It Matters
 
-That cognitive load is high, especially when clinicians are moving quickly between patients. The goal here is not to replace clinical judgment or diagnose the patient. The goal is to support licensed clinicians with a structured evaluation workflow, help them avoid missing key information, and connect findings to likely clinical patterns and evidence-informed treatment considerations.
+More structured evaluations can support:
 
-This matters because better structure can mean more consistent evaluations, clearer documentation, and faster access to relevant evidence while the clinician stays in control.
+- More complete clinical data collection
+- Clearer documentation
+- Faster access to relevant public evidence
+- More consistent reasoning across common upper-extremity presentations
+- Better separation between clinician-entered findings, decision support, and final clinical judgment
 
-### 2. The Tech Stack
+## Implementation
 
-The app is deployed publicly on Vercel, connected to GitHub. The frontend is built with plain HTML, CSS, and JavaScript, which made it fast to prototype and easy to deploy.
+The app is deployed publicly on Vercel and connected to GitHub for source control and automatic redeployment.
 
-The core app captures a patient persona, presentation details, range of motion and strength, special tests, and functional goals. JavaScript powers the step-by-step workflow, live completion tracking, clinical pattern scoring, treatment direction, and generated documentation note.
+The frontend uses plain HTML, CSS, and JavaScript. JavaScript powers the step-by-step workflow, live completion tracking, clinical pattern scoring, treatment direction, generated documentation note, and Evidence Scout interactions.
 
-Vercel gives us instant deployment and a public URL, so this is not just running locally on my laptop. Every time I push to GitHub, Vercel can redeploy the app.
+Vercel provides the public deployment and hosts the serverless function used for Evidence Scout.
 
-The Bright Data piece is the Evidence Scout. I added a Vercel serverless API route that can call Bright Data's SERP API to retrieve current public web evidence for the top-ranked clinical pattern. That means the app can move from static clinical rules to live evidence discovery.
+Bright Data is integrated as an optional evidence-acquisition provider. The app can call Bright Data's SERP API through a Vercel serverless route to retrieve public web evidence for the top-ranked clinical pattern.
 
-Without Bright Data, the app can still run, but it would only have static source placeholders or manual links. Bright Data enables the app to search public sources in real time, such as PubMed or professional clinical education resources, and bring those results back into the clinician workflow.
+Without Bright Data credentials, the app still works and falls back to demo public evidence links.
 
-Importantly, Bright Data is isolated as an optional evidence provider. The app does not send patient identifiers. It only sends the top clinical pattern, region, and selected findings. If we remove Bright Data later, the core evaluation workflow still works.
+## Demo Flow
 
-### 3. Live Demo And Code
+1. Open the live app at https://upper-extremity-eval-demo.vercel.app/
+2. Enter a sample patient persona, such as age, weight, occupation, work demand, and hand dominance.
+3. Move through the Presentation step and select a primary region, onset, pain level, and aggravating activities.
+4. Add ROM, strength, special test, sensation, and functional limitation findings.
+5. Review the live Clinical Fit panel as it ranks relevant clinical patterns.
+6. Review suggested evaluation focus areas and treatment direction.
+7. Use the generated note as a structured documentation draft.
+8. Click Evidence Scout to retrieve public evidence links for the top-ranked condition.
 
-Now I will show the product.
+## Code Structure
 
-This is the live Vercel deployment: https://upper-extremity-eval-demo.vercel.app/
+### `index.html`
 
-On the left, we have the evaluation steps: Patient Persona, Presentation, ROM and Strength, Special Tests, and Function and Goals.
+Defines the application shell, evaluation workspace, clinical support panel, Evidence Scout section, and generated note area.
 
-I will start with a sample patient. I will enter age 52, weight 165, occupation dental hygienist. I will select work demand as light or medium and hand dominance as right.
+### `styles.css`
 
-Now I will go to Presentation. Let's choose wrist as the primary region, gradual onset, and pain around 6 out of 10. For aggravating activities, I will choose keyboard or mouse and night pain.
+Defines the responsive layout, sidebar navigation, evaluation panel, clinical-fit cards, form controls, Evidence Scout cards, and mobile behavior.
 
-On the right, you can see the Clinical Fit panel updating. This ranks likely clinical patterns based on the entered findings. Again, this is not a diagnosis. It is clinical decision support for a licensed therapist.
+### `app.js`
 
-Now I will go to Special Tests and select Phalen test and Tinel at carpal tunnel, and sensation as median distribution symptoms. The carpal tunnel syndrome pattern rises as the most relevant consideration.
+Contains the frontend application logic:
 
-The app also suggests evaluation focus areas, treatment direction, and generates a note. This could help the clinician document faster and more consistently.
+- `steps`: structured configuration for the evaluation workflow
+- `conditionRules`: clinical-pattern rules used for demo scoring
+- `rankConditions()`: scores likely clinical patterns from selected findings
+- `renderInsights()`: updates clinical fit, evaluation focus, treatment direction, and notes
+- `generateNote()`: creates a structured documentation draft
+- `findCurrentEvidence()`: calls the serverless Evidence Scout endpoint
 
-Now here is the Bright Data-powered part: Evidence Scout. I click Find Current Evidence. This retrieves public evidence results for the top-ranked condition. Right now, if Bright Data credentials are configured in Vercel, the serverless function calls Bright Data's SERP API. If credentials are not configured, it gracefully falls back to demo links, so the product still works.
+### `api/evidence.js`
 
-### Code Walkthrough
+Contains the Vercel serverless function for Evidence Scout.
 
-Now I will briefly show the code.
+The browser calls `/api/evidence`. The serverless function reads `BRIGHT_DATA_API_KEY` and `BRIGHT_DATA_SERP_ZONE` from environment variables, builds a public evidence query, calls Bright Data when configured, normalizes the result shape, and returns evidence cards to the frontend.
 
-In `app.js`, the evaluation steps are defined as structured data. Each step has fields, labels, input types, and options. This lets the app render the workflow dynamically instead of hardcoding every form section.
+Keeping the Bright Data call in a serverless function prevents API keys from being exposed in public browser code.
 
-The `conditionRules` array defines the clinical patterns. Each pattern has a region, key findings, suggested evaluation focus, and treatment plan direction.
+## Architecture
 
-The `rankConditions()` function compares the clinician's selected findings against those rules and assigns a score. That score drives the Clinical Fit panel.
+```text
+Frontend evaluation app
+├── Structured evaluation workflow
+├── Clinical pattern scoring
+├── Treatment direction and note generation
+└── Evidence Scout
+    └── Vercel serverless API
+        └── Optional Bright Data SERP request
+```
 
-The `generateNote()` function turns the structured evaluation into a documentation-style note.
+The Evidence Scout layer is modular. If Bright Data is removed or replaced later, the core evaluation workflow remains intact.
 
-The Bright Data integration lives in `api/evidence.js`. This is a Vercel serverless function. The browser calls `/api/evidence`, and the serverless function reads `BRIGHT_DATA_API_KEY` and `BRIGHT_DATA_SERP_ZONE` from environment variables. That keeps the API key out of the public frontend code.
+## Roadmap
 
-The API route builds a public evidence query from the top condition, region, and findings, then calls Bright Data's request endpoint. It normalizes the returned SERP results into title, URL, description, and source, and sends that back to the app.
-
-That architecture is important because it keeps the core clinical workflow separate from the evidence provider. Bright Data is powerful, but optional. The app remains modular.
-
-### Closing
-
-So in summary, this project is a clinician-facing upper-extremity evaluation assistant. It structures the evaluation, ranks likely clinical patterns, suggests treatment direction, generates documentation, and uses Bright Data as an evidence acquisition layer for current public sources.
-
-The next steps would be adding authentication, PDF export, clinician-reviewed content, proper compliance controls, and deeper evidence integrations.
-
-For tonight's prototype, the key idea is simple: help clinicians move from patient findings to structured reasoning and current evidence faster, without replacing their judgment.
+- Add clinician-reviewed content and source citations
+- Add PDF export for generated notes
+- Add authentication for private usage
+- Add saved evaluations with compliant storage
+- Add admin-editable clinical rules
+- Add deeper evidence integrations
+- Add HIPAA-ready architecture before any real patient data is used
 
 ## Important Caveats
 
