@@ -217,6 +217,9 @@ const conditionListNode = document.querySelector("#conditionList");
 const evaluationFocusNode = document.querySelector("#evaluationFocus");
 const treatmentPlanNode = document.querySelector("#treatmentPlan");
 const noteOutputNode = document.querySelector("#noteOutput");
+const findEvidenceButton = document.querySelector("#findEvidenceButton");
+const evidenceResultsNode = document.querySelector("#evidenceResults");
+let currentRanked = [];
 
 document.querySelector("#backButton").addEventListener("click", () => {
   activeStep = Math.max(0, activeStep - 1);
@@ -244,6 +247,8 @@ document.querySelector("#copyNoteButton").addEventListener("click", async () => 
   await navigator.clipboard.writeText(noteOutputNode.value);
   toastButton("#copyNoteButton", "Copied");
 });
+
+findEvidenceButton.addEventListener("click", findCurrentEvidence);
 
 function loadState() {
   try {
@@ -390,6 +395,7 @@ function renderInsights() {
   const completion = Math.round((steps.reduce((sum, step) => sum + getStepCompletion(step), 0) / steps.length) * 100);
   const ranked = rankConditions();
   const primary = ranked[0];
+  currentRanked = ranked;
 
   completionStatusNode.textContent = `${completion}% complete`;
   conditionListNode.innerHTML = ranked
@@ -411,6 +417,71 @@ function renderInsights() {
     buildTreatmentPlan(primary),
   );
   noteOutputNode.value = generateNote(primary, ranked);
+}
+
+async function findCurrentEvidence() {
+  const primary = currentRanked[0];
+  if (!primary) return;
+
+  findEvidenceButton.disabled = true;
+  findEvidenceButton.textContent = "Searching...";
+  evidenceResultsNode.innerHTML = `<p class="evidence-meta">Searching public evidence for ${escapeHtml(primary.name)}.</p>`;
+
+  try {
+    const response = await fetch("/api/evidence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        condition: primary.name,
+        region: state.region,
+        findings: collectTokens().slice(0, 8),
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Evidence search failed.");
+    }
+
+    renderEvidenceResults(payload);
+  } catch (error) {
+    evidenceResultsNode.innerHTML = `
+      <article class="evidence-card">
+        <a href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(primary.name)}+rehabilitation" target="_blank" rel="noreferrer">PubMed search fallback</a>
+        <p>${escapeHtml(error.message)} Use this fallback link while the Bright Data API key or zone is being configured.</p>
+        <div class="evidence-meta">Evidence Scout is optional; clinical workflow remains available without it.</div>
+      </article>
+    `;
+  } finally {
+    findEvidenceButton.disabled = false;
+    findEvidenceButton.textContent = "Find Current Evidence";
+  }
+}
+
+function renderEvidenceResults(payload) {
+  const modeLabel = payload.mode === "live" ? "Live Bright Data SERP" : "Demo fallback";
+  const results = payload.results || [];
+
+  if (!results.length) {
+    evidenceResultsNode.innerHTML = `<p class="evidence-meta">${modeLabel}: no public results returned for this query.</p>`;
+    return;
+  }
+
+  evidenceResultsNode.innerHTML = `
+    <div class="evidence-meta">${modeLabel}. Last checked ${escapeHtml(payload.checkedAt || "now")}.</div>
+    ${results
+      .slice(0, 4)
+      .map(
+        (result) => `
+          <article class="evidence-card">
+            <a href="${escapeAttribute(result.url)}" target="_blank" rel="noreferrer">${escapeHtml(result.title)}</a>
+            <p>${escapeHtml(result.description || "Public evidence result returned for clinician review.")}</p>
+            <div class="evidence-meta">${escapeHtml(result.source || "Public web")}</div>
+          </article>
+        `,
+      )
+      .join("")}
+  `;
 }
 
 function rankConditions() {
@@ -489,6 +560,21 @@ function generateNote(primary, ranked) {
 
 function listItems(items) {
   return items.map((item) => `<li>${item}</li>`).join("");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttribute(value) {
+  const url = String(value || "");
+  if (!/^https?:\/\//i.test(url)) return "#";
+  return escapeHtml(url);
 }
 
 function toastButton(selector, text) {
