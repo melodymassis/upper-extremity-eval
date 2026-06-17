@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upper Extremity Evaluation Assistant</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Evaluation sections">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">UE</div>
+          <div>
+            <h1>Evaluation Assistant</h1>
+            <p>Upper extremity clinical decision support</p>
+          </div>
+        </div>
+
+        <nav class="steps" id="steps" aria-label="Evaluation progress"></nav>
+
+        <section class="source-note">
+          <h2>Reference Basis</h2>
+          <p>
+            Demo content is structured for licensed OT/PT review and cites
+            source placeholders for OpenEvidence and
+            <em>Rehabilitation of the Hand and Upper Extremity, 7th Ed.</em>
+          </p>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Clinician workflow</p>
+            <h2 id="sectionTitle">Patient Persona</h2>
+          </div>
+          <div class="toolbar" aria-label="Evaluation actions">
+            <button class="icon-button" id="backButton" type="button" title="Previous step" aria-label="Previous step">
+              <span aria-hidden="true">&lt;</span>
+            </button>
+            <button class="icon-button" id="nextButton" type="button" title="Next step" aria-label="Next step">
+              <span aria-hidden="true">&gt;</span>
+            </button>
+            <button class="icon-button" id="saveButton" type="button" title="Save locally" aria-label="Save locally">
+              <span aria-hidden="true">S</span>
+            </button>
+            <button class="icon-button" id="resetButton" type="button" title="Reset evaluation" aria-label="Reset evaluation">
+              <span aria-hidden="true">R</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="content-grid">
+          <form class="panel evaluation-panel" id="evaluationForm">
+            <div id="stepContent"></div>
+          </form>
+
+          <aside class="panel insights-panel" aria-label="Clinical support output">
+            <div class="insights-header">
+              <div>
+                <p class="eyebrow">Live support</p>
+                <h2>Clinical Fit</h2>
+              </div>
+              <span class="status-pill" id="completionStatus">0% complete</span>
+            </div>
+
+            <div class="alert">
+              <strong>For clinician review.</strong>
+              This prototype does not diagnose or replace professional
+              judgment, local policy, contraindication screening, or physician
+              referral criteria.
+            </div>
+
+            <section>
+              <h3>Most Relevant Considerations</h3>
+              <div class="condition-list" id="conditionList"></div>
+            </section>
+
+            <section>
+              <h3>Suggested Evaluation Focus</h3>
+              <ul class="compact-list" id="evaluationFocus"></ul>
+            </section>
+
+            <section>
+              <h3>Treatment Direction</h3>
+              <ul class="compact-list" id="treatmentPlan"></ul>
+            </section>
+
+            <section>
+              <h3>Generated Note</h3>
+              <textarea id="noteOutput" rows="9" readonly></textarea>
+              <button class="primary-action" id="copyNoteButton" type="button">Copy Note</button>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
