@@ -169,6 +169,10 @@ button {
   margin-bottom: 18px;
 }
 
+.app-shell[data-mode="start"] .topbar {
+  display: none;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--teal-dark);

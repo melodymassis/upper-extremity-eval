@@ -8,7 +8,7 @@ Live demo: https://upper-extremity-eval-demo.vercel.app/
 
 This prototype starts with two clinician paths:
 
-- Known diagnosis, surgery, or referral context: search and rerank public evidence for an established condition or post-operative therapy context.
+- Research and Learn: search and rerank public evidence for an established condition, surgery, protocol, or referral context.
 - Perform OT evaluation: walk through a structured functional evaluation when the therapist needs to assess what is limiting daily activity performance.
 
 The evaluation path guides a clinician through:
@@ -36,7 +36,7 @@ This app is for demonstration and clinician decision support only. It does not d
 
 ## Bright Data Integration
 
-Evidence Scout calls the serverless endpoint at `/api/evidence`. It can be used from either workflow path: a known diagnosis/post-op context or the top-ranked clinical pattern from the evaluation workflow.
+Evidence Scout calls the serverless endpoint at `/api/evidence`. It can be used from either workflow path: a research context entered by the clinician or the top-ranked clinical pattern from the evaluation workflow.
 
 The endpoint is designed to use Bright Data when these Vercel environment variables are configured:
 
@@ -47,7 +47,7 @@ BRIGHT_DATA_SERP_ZONE
 
 If those variables are not configured, the app falls back to demo public evidence links. The core evaluation workflow does not depend on Bright Data and continues to work without it.
 
-The app does not send patient identifiers to Bright Data. The evidence request only uses the known condition or top-ranked clinical pattern, region, and non-identifying context terms.
+The app does not send patient identifiers to Bright Data. The evidence request only uses the research context or top-ranked clinical pattern, region, and non-identifying context terms.
 
 ## Problem
 
@@ -83,12 +83,12 @@ Without Bright Data credentials, the app still works and falls back to demo publ
 
 1. Open the live app at https://upper-extremity-eval-demo.vercel.app/
 2. Choose a workflow path.
-3. For a known diagnosis or post-operative referral, enter the condition, region, stage, and therapy priorities, then search Evidence Scout.
+3. For Research and Learn, enter the condition, region, stage, and therapy priorities, then search Evidence Scout.
 4. For a full OT evaluation, enter patient context, presentation, ROM, strength, special tests, sensation, functional limitations, and goals.
 5. Review the live Clinical Fit panel as it ranks relevant clinical patterns.
 6. Review suggested evaluation focus areas and treatment direction.
 7. Use the generated note as a structured documentation draft.
-8. Click Evidence Scout to retrieve and rerank public evidence links for the known context or top-ranked condition.
+8. Click Evidence Scout to retrieve and rerank public evidence links for the research context or top-ranked condition.
 
 ## Code Structure
 
@@ -105,7 +105,7 @@ Defines the responsive layout, sidebar navigation, evaluation panel, clinical-fi
 Contains the frontend application logic:
 
 - `steps`: structured configuration for the evaluation workflow
-- `setMode()`: routes the user between start, known-context research, and evaluation modes
+- `setMode()`: routes the user between start, research, and evaluation modes
 - `conditionRules`: clinical-pattern rules used for demo scoring
 - `rankConditions()`: scores likely clinical patterns from selected findings
 - `renderInsights()`: updates clinical fit, evaluation focus, treatment direction, and notes
@@ -125,7 +125,7 @@ Keeping the Bright Data call in a serverless function prevents API keys from bei
 ```text
 Frontend evaluation app
 ├── Two-path intake screen
-├── Known-context evidence search
+├── Research evidence search
 ├── Structured evaluation workflow
 ├── Clinical pattern scoring
 ├── Treatment direction and note generation

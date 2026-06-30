@@ -318,7 +318,7 @@ function renderSteps() {
     stepsNode.innerHTML = `
       <button class="step-button active" type="button" data-mode="research">
         <span class="step-index">1</span>
-        <span class="step-label">Known Diagnosis</span>
+        <span class="step-label">Research</span>
       </button>
       <button class="step-button" type="button" data-mode="evaluation">
         <span class="step-index">2</span>
@@ -354,8 +354,8 @@ function renderSteps() {
 function renderTopbar() {
   const isEvaluation = appMode === "evaluation";
   const titleMap = {
-    start: "Start an OT Workflow",
-    research: "Known Diagnosis or Referral",
+    start: "",
+    research: "Research and Learn",
     evaluation: steps[activeStep]?.title || "OT Evaluation",
   };
   sectionTitleNode.textContent = titleMap[appMode];
@@ -370,7 +370,7 @@ function renderStartScreen() {
         <p class="eyebrow">Occupational therapy support</p>
         <h3>What are you trying to do today?</h3>
         <p>
-          Start with a known referral or diagnosis when the clinical context is already established,
+          Start with a referral, diagnosis, surgery, or protocol when the clinical context is already established,
           or walk through a functional OT evaluation when the therapist needs to assess barriers,
           impairments, goals, and daily activity performance.
         </p>
@@ -379,7 +379,7 @@ function renderStartScreen() {
         <button class="path-card" type="button" data-mode="research">
           <span class="path-icon" aria-hidden="true">${iconBinoculars()}</span>
           <strong>Research and Learn</strong>
-          <span>Search evidence and therapy considerations for a known condition, surgery, protocol, or referral reason.</span>
+          <span>Search evidence and therapy considerations for a condition, surgery, protocol, or referral reason.</span>
         </button>
         <button class="path-card" type="button" data-mode="evaluation">
           <span class="path-icon" aria-hidden="true">${iconHand()}</span>
@@ -403,7 +403,7 @@ function renderKnownContext() {
   stepContentNode.innerHTML = `
     <div class="step-intro">
       <div>
-        <h3>Known Diagnosis or Post-op Context</h3>
+        <h3>Research and Learn</h3>
         <p>Use this path when the referral already names the condition, procedure, protocol, or reason for therapy.</p>
       </div>
       <span class="status-pill">Evidence-first</span>
@@ -570,14 +570,22 @@ function getStepCompletion(step) {
 
 function renderInsights() {
   const completion = Math.round((steps.reduce((sum, step) => sum + getStepCompletion(step), 0) / steps.length) * 100);
+  const hasSignal = hasEvaluationFindings();
   const ranked = rankConditions();
-  const primary = ranked[0];
-  currentRanked = ranked;
+  const supported = ranked.filter((condition) => condition.reason);
+  const hasSupportedPattern = hasSignal && supported.length > 0;
+  const primary = hasSupportedPattern ? supported[0] : null;
+  currentRanked = hasSupportedPattern ? supported : [];
 
   insightsEyebrowNode.textContent = "Live support";
   insightsTitleNode.textContent = "Clinical Fit";
   completionStatusNode.textContent = `${completion}% complete`;
-  conditionListNode.innerHTML = ranked
+  findEvidenceButton.disabled = !hasSupportedPattern;
+  if (!hasSupportedPattern) {
+    evidenceResultsNode.innerHTML = "";
+  }
+
+  conditionListNode.innerHTML = hasSupportedPattern ? supported
     .slice(0, 3)
     .map(
       (condition) => `
@@ -587,20 +595,16 @@ function renderInsights() {
         </article>
       `,
     )
-    .join("");
+    .join("") : "";
 
-  evaluationFocusNode.innerHTML = listItems(
-    primary?.focus || ["Complete persona, presentation, ROM, strength, and special-test sections."],
-  );
-  treatmentPlanNode.innerHTML = listItems(
-    buildTreatmentPlan(primary),
-  );
-  noteOutputNode.value = generateNote(primary, ranked);
+  evaluationFocusNode.innerHTML = hasSupportedPattern ? listItems(primary?.focus || []) : "";
+  treatmentPlanNode.innerHTML = hasSupportedPattern ? listItems(buildTreatmentPlan(primary)) : "";
+  noteOutputNode.value = hasSupportedPattern ? generateNote(primary, supported) : "";
 }
 
 function renderResearchInsights() {
   insightsEyebrowNode.textContent = "Evidence support";
-  insightsTitleNode.textContent = "Known Context";
+  insightsTitleNode.textContent = "Research Context";
   completionStatusNode.textContent = state.knownDiagnosis ? "Ready" : "Add context";
   conditionListNode.innerHTML = "";
   evaluationFocusNode.innerHTML = listItems([
@@ -609,7 +613,7 @@ function renderResearchInsights() {
     "Switch to full evaluation when the therapist needs to measure function, ROM, strength, sensation, dexterity, cognition, or environment.",
   ]);
   treatmentPlanNode.innerHTML = listItems([
-    "Search public evidence for the known diagnosis or post-operative context.",
+    "Search public evidence for the research context.",
     "Document ADL/IADL priorities, precautions, and therapy goals before selecting interventions.",
   ]);
   noteOutputNode.value = generateKnownContextNote();
@@ -683,9 +687,8 @@ function getEvidenceTarget() {
   }
 
   const primary = currentRanked[0];
-  const hasEvaluationSignal = Boolean(state.region || state.onset || (state.aggravators || []).length || (state.specialTests || []).length || state.sensation);
   return {
-    condition: hasEvaluationSignal ? primary?.name || "" : "",
+    condition: hasEvaluationFindings() ? primary?.name || "" : "",
     region: state.region || "Upper extremity",
     findings: collectTokens().slice(0, 8),
   };
@@ -730,21 +733,40 @@ function rankConditions() {
   return conditionRules
     .map((condition) => {
       let score = 8;
-      if (state.region && condition.region === state.region) score += 28;
-      if (condition.region === "Diffuse upper extremity" && ["Acute traumatic", "Post-operative"].includes(state.onset)) score += 24;
+      const reasons = [];
+      if (state.region && condition.region === state.region) {
+        score += 28;
+        reasons.push(`primary region: ${state.region}`);
+      }
+      if (condition.region === "Diffuse upper extremity" && ["Acute traumatic", "Post-operative"].includes(state.onset)) {
+        score += 24;
+        reasons.push(`onset/context: ${state.onset}`);
+      }
 
       const matches = condition.findings.filter((finding) => tokens.includes(finding));
       score += matches.length * 12;
+      if (matches.length) {
+        reasons.push(...matches.slice(0, 4));
+      }
 
-      if (condition.name.includes("Rotator") && Number(state.shoulderFlexion) > 0 && Number(state.shoulderFlexion) < 150) score += 8;
-      if (condition.name.includes("Carpal") && state.sensation === "Median distribution symptoms") score += 18;
-      if (condition.name.includes("Lateral") && gripDeficitPercent() > 20) score += 8;
+      if (condition.name.includes("Rotator") && Number(state.shoulderFlexion) > 0 && Number(state.shoulderFlexion) < 150) {
+        score += 8;
+        reasons.push("limited shoulder flexion");
+      }
+      if (condition.name.includes("Carpal") && state.sensation === "Median distribution symptoms") {
+        score += 18;
+        reasons.push("median distribution symptoms");
+      }
+      if (condition.name.includes("Lateral") && gripDeficitPercent() > 20) {
+        score += 8;
+        reasons.push("grip strength deficit");
+      }
       if (Number(state.pain) >= 7) score += 5;
 
       return {
         ...condition,
         score: Math.min(96, score),
-        reason: matches.length ? `Supported by: ${matches.slice(0, 4).join(", ")}.` : "",
+        reason: reasons.length ? `Supported by: ${[...new Set(reasons)].slice(0, 5).join(", ")}.` : "",
       };
     })
     .sort((a, b) => b.score - a.score);
@@ -761,6 +783,27 @@ function collectTokens() {
     ...(state.specialTests || []),
     ...(state.limitations || []),
   ].filter(Boolean);
+}
+
+function hasEvaluationFindings() {
+  return Boolean(
+    state.region ||
+      state.onset ||
+      state.pain ||
+      (state.aggravators || []).length ||
+      (state.redFlags || []).length ||
+      state.shoulderFlexion ||
+      state.shoulderExternalRotation ||
+      state.elbowExtension ||
+      state.wristExtension ||
+      state.gripStrength ||
+      state.oppositeGripStrength ||
+      state.strengthPattern ||
+      (state.specialTests || []).length ||
+      state.sensation ||
+      state.edema ||
+      (state.limitations || []).length,
+  );
 }
 
 function gripDeficitPercent() {
@@ -801,7 +844,7 @@ function generateNote(primary, ranked) {
 
 function generateKnownContextNote() {
   return [
-    `Known context: ${state.knownDiagnosis || "[diagnosis, surgery, or referral reason]"}.`,
+    `Research context: ${state.knownDiagnosis || "[diagnosis, surgery, or referral reason]"}.`,
     `Region/context: ${state.knownRegion || "[region]"}; stage: ${state.knownStage || "[stage/context]"}.`,
     `Therapy priorities or precautions: ${state.knownPriorities || "[priorities/precautions]"}.`,
     "Evidence Scout can retrieve and rerank public sources for clinician review. Full treatment planning should still be based on an OT evaluation of ADLs/IADLs, ROM, strength, sensation, cognition, environment, goals, and applicable protocols.",
