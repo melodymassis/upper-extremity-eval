@@ -214,6 +214,29 @@ button {
   align-items: start;
 }
 
+.app-shell[data-mode="start"] .content-grid,
+.app-shell[data-mode="research"] .content-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.55fr);
+}
+
+.app-shell[data-mode="start"] .insights-panel {
+  display: none;
+}
+
+.app-shell[data-mode="start"] .content-grid {
+  max-width: 1120px;
+}
+
+.app-shell[data-mode="research"] .clinical-only {
+  display: none;
+}
+
+.app-shell[data-mode="start"] #nextButton,
+.app-shell[data-mode="research"] #nextButton {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -224,6 +247,10 @@ button {
 .evaluation-panel {
   min-height: calc(100vh - 118px);
   padding: 24px;
+}
+
+.app-shell[data-mode="start"] .evaluation-panel {
+  min-height: auto;
 }
 
 .insights-panel {
@@ -280,6 +307,72 @@ button {
   margin: 0;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.path-start {
+  display: grid;
+  gap: 26px;
+}
+
+.path-start h3 {
+  max-width: 780px;
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.path-start p {
+  max-width: 850px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.path-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.path-card {
+  display: grid;
+  gap: 12px;
+  min-height: 220px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.path-card:hover {
+  border-color: var(--teal);
+  box-shadow: 0 18px 36px rgba(25, 33, 42, 0.12);
+}
+
+.path-card strong {
+  font-size: 22px;
+  line-height: 1.18;
+}
+
+.path-card span:last-child {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.path-kicker {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #e5f3f3;
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .field-grid {
@@ -452,6 +545,20 @@ button {
 
 .primary-action:hover {
   background: var(--teal-dark);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.inline-action {
+  width: auto;
+  min-width: 180px;
+  margin-top: 0;
+  padding: 0 16px;
 }
 
 .secondary-action {
@@ -630,7 +737,8 @@ button {
 
   .field-grid,
   .field-grid.three,
-  .check-grid {
+  .check-grid,
+  .path-grid {
     grid-template-columns: 1fr;
   }
 

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app-shell">
+    <main class="app-shell" id="appShell">
       <aside class="sidebar" aria-label="Evaluation sections">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">UE</div>
@@ -59,8 +59,8 @@
           <aside class="panel insights-panel" aria-label="Clinical support output">
             <div class="insights-header">
               <div>
-                <p class="eyebrow">Live support</p>
-                <h2>Clinical Fit</h2>
+                <p class="eyebrow" id="insightsEyebrow">Live support</p>
+                <h2 id="insightsTitle">Clinical Fit</h2>
               </div>
               <span class="status-pill" id="completionStatus">0% complete</span>
             </div>
@@ -85,22 +85,22 @@
               <div class="evidence-results" id="evidenceResults" aria-live="polite"></div>
             </section>
 
-            <section>
+            <section class="clinical-only">
               <h3>Most Relevant Considerations</h3>
               <div class="condition-list" id="conditionList"></div>
             </section>
 
-            <section>
+            <section class="clinical-only">
               <h3>Suggested Evaluation Focus</h3>
               <ul class="compact-list" id="evaluationFocus"></ul>
             </section>
 
-            <section>
+            <section class="clinical-only">
               <h3>Treatment Direction</h3>
               <ul class="compact-list" id="treatmentPlan"></ul>
             </section>
 
-            <section>
+            <section class="clinical-only generated-note-section">
               <h3>Generated Note</h3>
               <textarea id="noteOutput" rows="9" readonly></textarea>
               <button class="primary-action" id="copyNoteButton" type="button">Copy Note</button>

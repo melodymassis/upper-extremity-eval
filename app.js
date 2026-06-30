@@ -207,11 +207,15 @@ const conditionRules = [
 ];
 
 const state = loadState();
+let appMode = "start";
 let activeStep = 0;
 
+const appShellNode = document.querySelector("#appShell");
 const stepsNode = document.querySelector("#steps");
 const sectionTitleNode = document.querySelector("#sectionTitle");
 const stepContentNode = document.querySelector("#stepContent");
+const insightsEyebrowNode = document.querySelector("#insightsEyebrow");
+const insightsTitleNode = document.querySelector("#insightsTitle");
 const completionStatusNode = document.querySelector("#completionStatus");
 const conditionListNode = document.querySelector("#conditionList");
 const evaluationFocusNode = document.querySelector("#evaluationFocus");
@@ -222,16 +226,26 @@ const evidenceResultsNode = document.querySelector("#evidenceResults");
 let currentRanked = [];
 
 document.querySelector("#backButton").addEventListener("click", () => {
+  if (appMode !== "evaluation") {
+    setMode("start");
+    return;
+  }
+  if (activeStep === 0) {
+    setMode("start");
+    return;
+  }
   activeStep = Math.max(0, activeStep - 1);
   render();
 });
 
 document.querySelector("#nextButton").addEventListener("click", () => {
+  if (appMode !== "evaluation") return;
   activeStep = Math.min(steps.length - 1, activeStep + 1);
   render();
 });
 
 document.querySelector("#saveButton").addEventListener("click", () => {
+  state.workflowMode = appMode;
   localStorage.setItem("ue-evaluation-demo", JSON.stringify(state));
   toastButton("#saveButton", "Saved");
 });
@@ -239,6 +253,7 @@ document.querySelector("#saveButton").addEventListener("click", () => {
 document.querySelector("#resetButton").addEventListener("click", () => {
   Object.keys(state).forEach((key) => delete state[key]);
   localStorage.removeItem("ue-evaluation-demo");
+  appMode = "start";
   activeStep = 0;
   render();
 });
@@ -259,12 +274,53 @@ function loadState() {
 }
 
 function render() {
+  appShellNode.dataset.mode = appMode;
   renderSteps();
+  renderTopbar();
+
+  if (appMode === "start") {
+    renderStartScreen();
+    return;
+  }
+
+  if (appMode === "research") {
+    renderKnownContext();
+    renderResearchInsights();
+    return;
+  }
+
   renderStepContent();
   renderInsights();
 }
 
 function renderSteps() {
+  if (appMode === "start") {
+    stepsNode.innerHTML = `
+      <button class="step-button active" type="button" data-mode="start">
+        <span class="step-index">1</span>
+        <span class="step-label">Choose Path</span>
+      </button>
+    `;
+    return;
+  }
+
+  if (appMode === "research") {
+    stepsNode.innerHTML = `
+      <button class="step-button active" type="button" data-mode="research">
+        <span class="step-index">1</span>
+        <span class="step-label">Known Diagnosis</span>
+      </button>
+      <button class="step-button" type="button" data-mode="evaluation">
+        <span class="step-index">2</span>
+        <span class="step-label">Perform Evaluation</span>
+      </button>
+    `;
+    stepsNode.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+    return;
+  }
+
   stepsNode.innerHTML = steps
     .map((step, index) => {
       const complete = getStepCompletion(step) === 1;
@@ -283,6 +339,100 @@ function renderSteps() {
       render();
     });
   });
+}
+
+function renderTopbar() {
+  const isEvaluation = appMode === "evaluation";
+  const titleMap = {
+    start: "Start an OT Workflow",
+    research: "Known Diagnosis or Referral",
+    evaluation: steps[activeStep]?.title || "OT Evaluation",
+  };
+  sectionTitleNode.textContent = titleMap[appMode];
+  document.querySelector("#backButton").title = isEvaluation ? "Previous step" : "Choose another path";
+  document.querySelector("#backButton").setAttribute("aria-label", isEvaluation ? "Previous step" : "Choose another path");
+  document.querySelector("#nextButton").disabled = !isEvaluation;
+}
+
+function renderStartScreen() {
+  stepContentNode.innerHTML = `
+    <section class="path-start">
+      <div>
+        <p class="eyebrow">Occupational therapy support</p>
+        <h3>What are you trying to do today?</h3>
+        <p>
+          Start with a known referral or diagnosis when the clinical context is already established,
+          or walk through a functional OT evaluation when the therapist needs to assess barriers,
+          impairments, goals, and daily activity performance.
+        </p>
+      </div>
+      <div class="path-grid">
+        <button class="path-card" type="button" data-mode="research">
+          <span class="path-kicker">Path 1</span>
+          <strong>Known diagnosis or post-op referral</strong>
+          <span>Search evidence and therapy considerations for a known condition, surgery, protocol, or referral reason.</span>
+        </button>
+        <button class="path-card" type="button" data-mode="evaluation">
+          <span class="path-kicker">Path 2</span>
+          <strong>Perform OT evaluation</strong>
+          <span>Collect patient context, ADLs/IADLs, physical findings, special tests, functional goals, and treatment direction.</span>
+        </button>
+      </div>
+    </section>
+  `;
+  insightsEyebrowNode.textContent = "Ready";
+  insightsTitleNode.textContent = "Select a Path";
+  completionStatusNode.textContent = "Start";
+  evidenceResultsNode.innerHTML = "";
+  currentRanked = [];
+  stepContentNode.querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", () => setMode(button.dataset.mode));
+  });
+}
+
+function renderKnownContext() {
+  stepContentNode.innerHTML = `
+    <div class="step-intro">
+      <div>
+        <h3>Known Diagnosis or Post-op Context</h3>
+        <p>Use this path when the referral already names the condition, procedure, protocol, or reason for therapy.</p>
+      </div>
+      <span class="status-pill">Evidence-first</span>
+    </div>
+    <div class="field-grid">
+      <div class="field full">
+        <label for="knownDiagnosis">Diagnosis, surgery, or referral reason</label>
+        <input id="knownDiagnosis" name="knownDiagnosis" type="text" value="${escapeAttributeValue(state.knownDiagnosis || "")}" placeholder="Carpal tunnel release, distal radius ORIF, rotator cuff repair">
+      </div>
+      <div class="field">
+        <label for="knownRegion">Primary region</label>
+        <select id="knownRegion" name="knownRegion">
+          ${["", "Shoulder", "Elbow", "Wrist", "Hand", "Thumb", "Diffuse upper extremity"].map((option) => `<option ${state.knownRegion === option ? "selected" : ""}>${option}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label for="knownStage">Stage or context</label>
+        <select id="knownStage" name="knownStage">
+          ${["", "Post-operative", "Acute injury", "Chronic condition", "Return to work", "Ergonomics", "Neurologic recovery"].map((option) => `<option ${state.knownStage === option ? "selected" : ""}>${option}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field full">
+        <label for="knownPriorities">Therapy priorities or precautions</label>
+        <textarea id="knownPriorities" name="knownPriorities" rows="5" placeholder="Precautions, protocol phase, ADL/IADL goals, work demands, splinting questions">${escapeHtml(state.knownPriorities || "")}</textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="primary-action inline-action" id="researchEvidenceButton" type="button">Search Evidence</button>
+      <button class="secondary-action inline-action" type="button" data-mode="evaluation">Switch to Evaluation</button>
+    </div>
+  `;
+
+  stepContentNode.querySelectorAll("input, select, textarea").forEach((input) => {
+    input.addEventListener("input", syncField);
+    input.addEventListener("change", syncField);
+  });
+  stepContentNode.querySelector("#researchEvidenceButton").addEventListener("click", findCurrentEvidence);
+  stepContentNode.querySelector("[data-mode='evaluation']").addEventListener("click", () => setMode("evaluation"));
 }
 
 function renderStepContent() {
@@ -379,8 +529,24 @@ function syncField(event) {
   } else {
     state[input.name] = input.value;
   }
-  renderInsights();
+  if (appMode === "research") {
+    renderResearchInsights();
+  } else if (appMode === "evaluation") {
+    renderInsights();
+  }
   renderSteps();
+}
+
+function setMode(mode) {
+  appMode = mode || "start";
+  state.workflowMode = appMode;
+  if (appMode === "evaluation") {
+    activeStep = 0;
+  }
+  if (appMode === "evaluation") {
+    evidenceResultsNode.innerHTML = "";
+  }
+  render();
 }
 
 function getStepCompletion(step) {
@@ -397,6 +563,8 @@ function renderInsights() {
   const primary = ranked[0];
   currentRanked = ranked;
 
+  insightsEyebrowNode.textContent = "Live support";
+  insightsTitleNode.textContent = "Clinical Fit";
   completionStatusNode.textContent = `${completion}% complete`;
   conditionListNode.innerHTML = ranked
     .slice(0, 3)
@@ -419,22 +587,47 @@ function renderInsights() {
   noteOutputNode.value = generateNote(primary, ranked);
 }
 
+function renderResearchInsights() {
+  insightsEyebrowNode.textContent = "Evidence support";
+  insightsTitleNode.textContent = "Known Context";
+  completionStatusNode.textContent = state.knownDiagnosis ? "Ready" : "Add context";
+  conditionListNode.innerHTML = "";
+  evaluationFocusNode.innerHTML = listItems([
+    "Clarify referral reason, surgical protocol or precautions, and current functional limitations.",
+    "Use evidence links as background support; final plan should match clinician assessment and local protocol.",
+    "Switch to full evaluation when the therapist needs to measure function, ROM, strength, sensation, dexterity, cognition, or environment.",
+  ]);
+  treatmentPlanNode.innerHTML = listItems([
+    "Search public evidence for the known diagnosis or post-operative context.",
+    "Document ADL/IADL priorities, precautions, and therapy goals before selecting interventions.",
+  ]);
+  noteOutputNode.value = generateKnownContextNote();
+}
+
 async function findCurrentEvidence() {
-  const primary = currentRanked[0];
-  if (!primary) return;
+  const target = getEvidenceTarget();
+  if (!target.condition) {
+    evidenceResultsNode.innerHTML = `<p class="evidence-meta">Enter a diagnosis, surgery, referral reason, or evaluation findings before searching evidence.</p>`;
+    return;
+  }
 
   findEvidenceButton.disabled = true;
   findEvidenceButton.textContent = "Searching...";
-  evidenceResultsNode.innerHTML = `<p class="evidence-meta">Searching public evidence for ${escapeHtml(primary.name)}.</p>`;
+  const researchButton = document.querySelector("#researchEvidenceButton");
+  if (researchButton) {
+    researchButton.disabled = true;
+    researchButton.textContent = "Searching...";
+  }
+  evidenceResultsNode.innerHTML = `<p class="evidence-meta">Searching public evidence for ${escapeHtml(target.condition)}.</p>`;
 
   try {
     const response = await fetch("/api/evidence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        condition: primary.name,
-        region: state.region,
-        findings: collectTokens().slice(0, 8),
+        condition: target.condition,
+        region: target.region,
+        findings: target.findings,
       }),
     });
 
@@ -447,7 +640,7 @@ async function findCurrentEvidence() {
   } catch (error) {
     evidenceResultsNode.innerHTML = `
       <article class="evidence-card">
-        <a href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(primary.name)}+rehabilitation" target="_blank" rel="noreferrer">PubMed search fallback</a>
+        <a href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(target.condition)}+rehabilitation" target="_blank" rel="noreferrer">PubMed search fallback</a>
         <p>${escapeHtml(error.message)} Use this fallback link while the Bright Data API key or zone is being configured.</p>
         <div class="evidence-meta">Evidence Scout is optional; clinical workflow remains available without it.</div>
       </article>
@@ -455,7 +648,29 @@ async function findCurrentEvidence() {
   } finally {
     findEvidenceButton.disabled = false;
     findEvidenceButton.textContent = "Find Current Evidence";
+    if (researchButton) {
+      researchButton.disabled = false;
+      researchButton.textContent = "Search Evidence";
+    }
   }
+}
+
+function getEvidenceTarget() {
+  if (appMode === "research") {
+    return {
+      condition: state.knownDiagnosis || "",
+      region: state.knownRegion || "Upper extremity",
+      findings: [state.knownStage, state.knownPriorities].filter(Boolean).join(" ").split(/\s*,\s*|\s*;\s*/).filter(Boolean).slice(0, 8),
+    };
+  }
+
+  const primary = currentRanked[0];
+  const hasEvaluationSignal = Boolean(state.region || state.onset || (state.aggravators || []).length || (state.specialTests || []).length || state.sensation);
+  return {
+    condition: hasEvaluationSignal ? primary?.name || "" : "",
+    region: state.region || "Upper extremity",
+    findings: collectTokens().slice(0, 8),
+  };
 }
 
 function renderEvidenceResults(payload) {
@@ -566,6 +781,15 @@ function generateNote(primary, ranked) {
   ].join("\n\n");
 }
 
+function generateKnownContextNote() {
+  return [
+    `Known context: ${state.knownDiagnosis || "[diagnosis, surgery, or referral reason]"}.`,
+    `Region/context: ${state.knownRegion || "[region]"}; stage: ${state.knownStage || "[stage/context]"}.`,
+    `Therapy priorities or precautions: ${state.knownPriorities || "[priorities/precautions]"}.`,
+    "Evidence Scout can retrieve and rerank public sources for clinician review. Full treatment planning should still be based on an OT evaluation of ADLs/IADLs, ROM, strength, sensation, cognition, environment, goals, and applicable protocols.",
+  ].join("\n\n");
+}
+
 function listItems(items) {
   return items.map((item) => `<li>${item}</li>`).join("");
 }
@@ -583,6 +807,10 @@ function escapeAttribute(value) {
   const url = String(value || "");
   if (!/^https?:\/\//i.test(url)) return "#";
   return escapeHtml(url);
+}
+
+function escapeAttributeValue(value) {
+  return escapeHtml(value).replaceAll("\n", " ");
 }
 
 function toastButton(selector, text) {
