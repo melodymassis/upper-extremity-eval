@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Upper Extremity Evaluation Assistant</title>
-    <link rel="stylesheet" href="styles.css?v=20260630-two-path" />
+    <link rel="stylesheet" href="styles.css?v=20260630-clinic-toolbar" />
   </head>
   <body>
     <main class="app-shell" id="appShell">
@@ -36,18 +36,11 @@
             <h2 id="sectionTitle">Patient Persona</h2>
           </div>
           <div class="toolbar" aria-label="Evaluation actions">
-            <button class="icon-button" id="backButton" type="button" title="Previous step" aria-label="Previous step">
-              <span aria-hidden="true">&lt;</span>
-            </button>
-            <button class="icon-button" id="nextButton" type="button" title="Next step" aria-label="Next step">
-              <span aria-hidden="true">&gt;</span>
-            </button>
-            <button class="icon-button" id="saveButton" type="button" title="Save locally" aria-label="Save locally">
-              <span aria-hidden="true">S</span>
-            </button>
-            <button class="icon-button" id="resetButton" type="button" title="Reset evaluation" aria-label="Reset evaluation">
-              <span aria-hidden="true">R</span>
-            </button>
+            <button class="toolbar-button" id="homeButton" type="button">Home</button>
+            <button class="toolbar-button" id="backButton" type="button">Back</button>
+            <button class="toolbar-button" id="nextButton" type="button">Next</button>
+            <button class="toolbar-button" id="saveButton" type="button">Save</button>
+            <button class="toolbar-button danger" id="resetButton" type="button">Clear</button>
           </div>
         </header>
 
@@ -75,7 +68,6 @@
             <section class="evidence-scout">
               <div class="section-heading-row">
                 <h3>Evidence Scout</h3>
-                <span class="powered-pill">Bright Data</span>
               </div>
               <p class="evidence-copy">
                 Search public sources, rerank them for clinical relevance, and
@@ -110,6 +102,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=20260630-two-path"></script>
+    <script src="app.js?v=20260630-clinic-toolbar"></script>
   </body>
 </html>

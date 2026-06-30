@@ -224,6 +224,11 @@ const noteOutputNode = document.querySelector("#noteOutput");
 const findEvidenceButton = document.querySelector("#findEvidenceButton");
 const evidenceResultsNode = document.querySelector("#evidenceResults");
 let currentRanked = [];
+let hasUnsavedChanges = false;
+
+document.querySelector("#homeButton").addEventListener("click", () => {
+  setMode("start");
+});
 
 document.querySelector("#backButton").addEventListener("click", () => {
   if (appMode !== "evaluation") {
@@ -247,12 +252,17 @@ document.querySelector("#nextButton").addEventListener("click", () => {
 document.querySelector("#saveButton").addEventListener("click", () => {
   state.workflowMode = appMode;
   localStorage.setItem("ue-evaluation-demo", JSON.stringify(state));
+  hasUnsavedChanges = false;
   toastButton("#saveButton", "Saved");
 });
 
 document.querySelector("#resetButton").addEventListener("click", () => {
+  if (hasUnsavedChanges && !window.confirm("Clear this evaluation? Unsaved changes will be lost.")) {
+    return;
+  }
   Object.keys(state).forEach((key) => delete state[key]);
   localStorage.removeItem("ue-evaluation-demo");
+  hasUnsavedChanges = false;
   appMode = "start";
   activeStep = 0;
   render();
@@ -349,8 +359,7 @@ function renderTopbar() {
     evaluation: steps[activeStep]?.title || "OT Evaluation",
   };
   sectionTitleNode.textContent = titleMap[appMode];
-  document.querySelector("#backButton").title = isEvaluation ? "Previous step" : "Choose another path";
-  document.querySelector("#backButton").setAttribute("aria-label", isEvaluation ? "Previous step" : "Choose another path");
+  document.querySelector("#backButton").disabled = appMode === "start";
   document.querySelector("#nextButton").disabled = !isEvaluation;
 }
 
@@ -368,13 +377,13 @@ function renderStartScreen() {
       </div>
       <div class="path-grid">
         <button class="path-card" type="button" data-mode="research">
-          <span class="path-kicker">Path 1</span>
-          <strong>Known diagnosis or post-op referral</strong>
+          <span class="path-icon" aria-hidden="true">${iconBinoculars()}</span>
+          <strong>Research and Learn</strong>
           <span>Search evidence and therapy considerations for a known condition, surgery, protocol, or referral reason.</span>
         </button>
         <button class="path-card" type="button" data-mode="evaluation">
-          <span class="path-kicker">Path 2</span>
-          <strong>Perform OT evaluation</strong>
+          <span class="path-icon" aria-hidden="true">${iconHand()}</span>
+          <strong>Do an OT Evaluation</strong>
           <span>Collect patient context, ADLs/IADLs, physical findings, special tests, functional goals, and treatment direction.</span>
         </button>
       </div>
@@ -425,6 +434,7 @@ function renderKnownContext() {
       <button class="primary-action inline-action" id="researchEvidenceButton" type="button">Search Evidence</button>
       <button class="secondary-action inline-action" type="button" data-mode="evaluation">Switch to Evaluation</button>
     </div>
+    <div class="inline-evidence-results" id="inlineEvidenceResults" aria-live="polite"></div>
   `;
 
   stepContentNode.querySelectorAll("input, select, textarea").forEach((input) => {
@@ -529,6 +539,7 @@ function syncField(event) {
   } else {
     state[input.name] = input.value;
   }
+  hasUnsavedChanges = true;
   if (appMode === "research") {
     renderResearchInsights();
   } else if (appMode === "evaluation") {
@@ -606,8 +617,9 @@ function renderResearchInsights() {
 
 async function findCurrentEvidence() {
   const target = getEvidenceTarget();
+  const resultsNode = getEvidenceResultsNode();
   if (!target.condition) {
-    evidenceResultsNode.innerHTML = `<p class="evidence-meta">Enter a diagnosis, surgery, referral reason, or evaluation findings before searching evidence.</p>`;
+    resultsNode.innerHTML = `<p class="evidence-meta">Enter a diagnosis, surgery, referral reason, or evaluation findings before searching evidence.</p>`;
     return;
   }
 
@@ -618,7 +630,7 @@ async function findCurrentEvidence() {
     researchButton.disabled = true;
     researchButton.textContent = "Searching...";
   }
-  evidenceResultsNode.innerHTML = `<p class="evidence-meta">Searching public evidence for ${escapeHtml(target.condition)}.</p>`;
+  resultsNode.innerHTML = `<p class="evidence-meta">Searching public evidence for ${escapeHtml(target.condition)}.</p>`;
 
   try {
     const response = await fetch("/api/evidence", {
@@ -636,9 +648,9 @@ async function findCurrentEvidence() {
       throw new Error(payload.error || "Evidence search failed.");
     }
 
-    renderEvidenceResults(payload);
+    renderEvidenceResults(payload, resultsNode);
   } catch (error) {
-    evidenceResultsNode.innerHTML = `
+    resultsNode.innerHTML = `
       <article class="evidence-card">
         <a href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(target.condition)}+rehabilitation" target="_blank" rel="noreferrer">PubMed search fallback</a>
         <p>${escapeHtml(error.message)} Use this fallback link while the Bright Data API key or zone is being configured.</p>
@@ -653,6 +665,12 @@ async function findCurrentEvidence() {
       researchButton.textContent = "Search Evidence";
     }
   }
+}
+
+function getEvidenceResultsNode() {
+  return appMode === "research"
+    ? document.querySelector("#inlineEvidenceResults") || evidenceResultsNode
+    : evidenceResultsNode;
 }
 
 function getEvidenceTarget() {
@@ -673,17 +691,17 @@ function getEvidenceTarget() {
   };
 }
 
-function renderEvidenceResults(payload) {
+function renderEvidenceResults(payload, targetNode = evidenceResultsNode) {
   const modeLabel = payload.mode === "live" ? "Live Bright Data search" : "Demo fallback";
   const results = payload.results || [];
 
   if (!results.length) {
-    evidenceResultsNode.innerHTML = `<p class="evidence-meta">${modeLabel}: no public results returned for this query.</p>`;
+    targetNode.innerHTML = `<p class="evidence-meta">${modeLabel}: no public results returned for this query.</p>`;
     return;
   }
 
-  evidenceResultsNode.innerHTML = `
-    <div class="evidence-meta">${modeLabel}. Reranked locally by source quality and clinical relevance. Last checked ${escapeHtml(payload.checkedAt || "now")}.</div>
+  targetNode.innerHTML = `
+    <div class="evidence-meta">${modeLabel}. Reranked locally by source quality and clinical relevance.</div>
     ${results
       .slice(0, 3)
       .map(
@@ -820,6 +838,31 @@ function toastButton(selector, text) {
   setTimeout(() => {
     button.textContent = previous;
   }, 1100);
+}
+
+function iconBinoculars() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+      <path d="M7 8V5a2 2 0 0 1 4 0v3" />
+      <path d="M13 8V5a2 2 0 0 1 4 0v3" />
+      <path d="M5 9h6l-1 9H4z" />
+      <path d="M13 9h6l1 9h-6z" />
+      <path d="M10 14h4" />
+      <circle cx="7" cy="18" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </svg>
+  `;
+}
+
+function iconHand() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+      <path d="M8 13V5a1.5 1.5 0 0 1 3 0v7" />
+      <path d="M11 12V4a1.5 1.5 0 0 1 3 0v8" />
+      <path d="M14 12V6a1.5 1.5 0 0 1 3 0v8" />
+      <path d="M17 14V9a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a7 7 0 0 1-6.2-3.8L4 15a1.6 1.6 0 0 1 2.8-1.5L9 17" />
+    </svg>
+  `;
 }
 
 render();

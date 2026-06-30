@@ -190,11 +190,10 @@ button {
   gap: 8px;
 }
 
-.icon-button {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
+.toolbar-button {
+  min-width: 74px;
+  min-height: 42px;
+  padding: 0 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -202,9 +201,24 @@ button {
   font-weight: 800;
 }
 
-.icon-button:hover {
+.toolbar-button:hover {
   border-color: var(--teal);
   color: var(--teal-dark);
+}
+
+.toolbar-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toolbar-button:disabled:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.toolbar-button.danger:hover {
+  border-color: var(--red);
+  color: var(--red);
 }
 
 .content-grid {
@@ -220,6 +234,15 @@ button {
 }
 
 .app-shell[data-mode="start"] .insights-panel {
+  display: none;
+}
+
+.app-shell[data-mode="research"] .content-grid {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1120px;
+}
+
+.app-shell[data-mode="research"] .insights-panel {
   display: none;
 }
 
@@ -338,7 +361,7 @@ button {
 .path-card {
   display: grid;
   gap: 12px;
-  min-height: 220px;
+  min-height: 240px;
   align-content: start;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -353,6 +376,22 @@ button {
   box-shadow: 0 18px 36px rgba(25, 33, 42, 0.12);
 }
 
+.path-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 8px;
+  background: #e5f3f3;
+  color: var(--teal-dark);
+}
+
+.path-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+}
+
 .path-card strong {
   font-size: 22px;
   line-height: 1.18;
@@ -362,17 +401,6 @@ button {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-}
-
-.path-kicker {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 6px 9px;
-  background: #e5f3f3;
-  color: var(--teal-dark);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
 }
 
 .field-grid {
@@ -619,6 +647,16 @@ button {
   gap: 10px;
 }
 
+.inline-evidence-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.inline-evidence-results:empty {
+  display: none;
+}
+
 .evidence-card {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -728,11 +766,12 @@ button {
   }
 
   .toolbar {
-    justify-content: space-between;
+    justify-content: stretch;
+    flex-wrap: wrap;
   }
 
-  .icon-button {
-    width: 100%;
+  .toolbar-button {
+    flex: 1 1 86px;
   }
 
   .field-grid,
