@@ -501,6 +501,10 @@ button {
 .evidence-scout {
   display: grid;
   gap: 10px;
+  border: 1px solid #c9dede;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f4fbfb;
 }
 
 .evidence-results {
@@ -535,6 +539,45 @@ button {
 
 .evidence-meta {
   margin-top: 8px;
+}
+
+.evidence-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.evidence-rank {
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #e5f3f3;
+  color: var(--teal-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.evidence-summary {
+  border-left: 3px solid var(--teal);
+  margin-top: 9px;
+  padding-left: 10px;
+}
+
+.matched-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.matched-terms span {
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: #edf2f5;
+  color: #34424f;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 #noteOutput {

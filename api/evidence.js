@@ -6,6 +6,36 @@ const PUBLIC_SOURCE_HINTS = [
   "site:ncbi.nlm.nih.gov/books",
 ];
 
+const TRUSTED_SOURCES = [
+  { match: "pubmed.ncbi.nlm.nih.gov", type: "Biomedical literature", score: 35 },
+  { match: "ncbi.nlm.nih.gov", type: "NIH / NCBI", score: 32 },
+  { match: "cochrane.org", type: "Evidence review", score: 32 },
+  { match: "apta.org", type: "Professional society", score: 28 },
+  { match: "aaos.org", type: "Professional society", score: 26 },
+  { match: "assh.org", type: "Professional society", score: 26 },
+  { match: "nih.gov", type: "Government health source", score: 24 },
+  { match: "mayoclinic.org", type: "Academic medical source", score: 16 },
+  { match: "clevelandclinic.org", type: "Academic medical source", score: 16 },
+];
+
+const EVIDENCE_TERMS = [
+  "guideline",
+  "systematic review",
+  "randomized",
+  "trial",
+  "rehabilitation",
+  "occupational therapy",
+  "physical therapy",
+  "exercise",
+  "splint",
+  "orthosis",
+  "conservative",
+  "treatment",
+  "therapy",
+];
+
+const PENALTY_TERMS = ["sponsored", "advertisement", "coupon", "shop", "product", "billing"];
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -28,7 +58,7 @@ module.exports = async function handler(req, res) {
       mode: "demo",
       checkedAt,
       query,
-      results: demoResults(condition),
+      results: rerankResults(demoResults(condition), condition, region, findings),
       message: "Set BRIGHT_DATA_API_KEY and BRIGHT_DATA_SERP_ZONE in Vercel to enable live Bright Data SERP results.",
     });
   }
@@ -58,7 +88,7 @@ module.exports = async function handler(req, res) {
     }
 
     const parsed = safeJson(text);
-    const results = normalizeResults(parsed).slice(0, 6);
+    const results = rerankResults(normalizeResults(parsed), condition, region, findings).slice(0, 6);
 
     return res.status(200).json({
       provider: "bright-data",
@@ -88,6 +118,92 @@ function buildQuery(condition, region, findings) {
     .join(" ");
 }
 
+function rerankResults(results, condition, region, findings) {
+  const clinicalTerms = [
+    condition,
+    condition.replace(/\bpattern\b/gi, ""),
+    region,
+    ...findings,
+    "rehabilitation",
+    "occupational therapy",
+    "physical therapy",
+  ]
+    .map(normalizeTerm)
+    .filter(Boolean);
+
+  return results
+    .map((result) => {
+      const sourceProfile = sourceProfileFor(result.source || result.url);
+      const haystack = normalizeTerm([
+        result.title,
+        result.description,
+        result.source,
+      ].join(" "));
+
+      const matchedClinical = clinicalTerms.filter((term) => term && haystack.includes(term));
+      const matchedEvidence = EVIDENCE_TERMS.filter((term) => haystack.includes(term));
+      const penalties = PENALTY_TERMS.filter((term) => haystack.includes(term));
+
+      const score = clamp(
+        sourceProfile.score +
+          matchedClinical.length * 9 +
+          matchedEvidence.length * 5 -
+          penalties.length * 10,
+        15,
+        98,
+      );
+
+      const matchedTerms = [...new Set([...matchedClinical, ...matchedEvidence])]
+        .map((term) => titleCase(term))
+        .slice(0, 8);
+
+      return {
+        ...result,
+        relevanceScore: score,
+        matchedTerms,
+        sourceType: sourceProfile.type,
+        rankReason: buildRankReason(sourceProfile, matchedTerms, penalties),
+        keySummary: buildKeySummary(result, condition, sourceProfile, matchedTerms),
+      };
+    })
+    .sort((a, b) => b.relevanceScore - a.relevanceScore);
+}
+
+function sourceProfileFor(source) {
+  const normalized = normalizeTerm(source);
+  return TRUSTED_SOURCES.find((item) => normalized.includes(item.match)) || {
+    type: "General public web",
+    score: 8,
+  };
+}
+
+function buildRankReason(sourceProfile, matchedTerms, penalties) {
+  const parts = [`Ranked highly for ${sourceProfile.type.toLowerCase()} source quality`];
+  if (matchedTerms.length) {
+    parts.push(`matched ${matchedTerms.slice(0, 4).join(", ")}`);
+  }
+  if (penalties.length) {
+    parts.push(`downranked for ${penalties.join(", ")}`);
+  }
+  return `${parts.join("; ")}.`;
+}
+
+function buildKeySummary(result, condition, sourceProfile, matchedTerms) {
+  const conditionLabel = condition.replace(/\s+pattern$/i, "");
+  const sourcePhrase = sourceProfile.type === "General public web"
+    ? "a public web source"
+    : `a ${sourceProfile.type.toLowerCase()} source`;
+  const matchPhrase = matchedTerms.length
+    ? ` It matches ${matchedTerms.slice(0, 4).join(", ")}.`
+    : " It is included primarily because of source quality and should be reviewed for condition-specific relevance.";
+
+  const relevancePhrase = matchedTerms.length
+    ? `its title or snippet overlaps with the current evaluation focus`
+    : `it is a trusted starting point for clinician review`;
+
+  return `This result appears relevant to ${conditionLabel} because it comes from ${sourcePhrase} and ${relevancePhrase}.${matchPhrase} Open the source to confirm details before applying clinically.`;
+}
+
 function normalizeResults(payload) {
   const organic = Array.isArray(payload?.organic)
     ? payload.organic
@@ -109,24 +225,43 @@ function demoResults(condition) {
   const query = encodeURIComponent(`${condition} rehabilitation`);
   return [
     {
-      title: "PubMed literature search",
+      title: `${condition} rehabilitation literature search`,
       url: `https://pubmed.ncbi.nlm.nih.gov/?term=${query}`,
-      description: "Fallback public literature search. Configure Bright Data credentials for live SERP retrieval.",
+      description: "PubMed fallback search for rehabilitation, therapy, splinting, conservative treatment, and clinical review literature.",
       source: "pubmed.ncbi.nlm.nih.gov",
     },
     {
-      title: "AAOS patient and clinical education search",
+      title: `${condition} orthopedic education search`,
       url: `https://www.aaos.org/search/?SearchTerm=${query}`,
-      description: "Public orthopedic education source for clinician review and patient education context.",
+      description: "AAOS public education search for orthopedic condition context, treatment options, and patient education review.",
       source: "aaos.org",
     },
     {
       title: "ASSH hand and upper extremity education",
       url: "https://www.assh.org/handcare/",
-      description: "Public hand and upper-extremity education library for clinician review.",
+      description: "ASSH public hand and upper-extremity education library for clinician review and patient education context.",
       source: "assh.org",
     },
   ];
+}
+
+function normalizeTerm(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\w\s.-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .split(" ")
+    .map((part) => part ? part[0].toUpperCase() + part.slice(1) : "")
+    .join(" ");
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function sanitize(value) {

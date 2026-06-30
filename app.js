@@ -459,7 +459,7 @@ async function findCurrentEvidence() {
 }
 
 function renderEvidenceResults(payload) {
-  const modeLabel = payload.mode === "live" ? "Live Bright Data SERP" : "Demo fallback";
+  const modeLabel = payload.mode === "live" ? "Live Bright Data search" : "Demo fallback";
   const results = payload.results || [];
 
   if (!results.length) {
@@ -468,15 +468,23 @@ function renderEvidenceResults(payload) {
   }
 
   evidenceResultsNode.innerHTML = `
-    <div class="evidence-meta">${modeLabel}. Last checked ${escapeHtml(payload.checkedAt || "now")}.</div>
+    <div class="evidence-meta">${modeLabel}. Reranked locally by source quality and clinical relevance. Last checked ${escapeHtml(payload.checkedAt || "now")}.</div>
     ${results
-      .slice(0, 4)
+      .slice(0, 3)
       .map(
         (result) => `
           <article class="evidence-card">
-            <a href="${escapeAttribute(result.url)}" target="_blank" rel="noreferrer">${escapeHtml(result.title)}</a>
+            <div class="evidence-score-row">
+              <a href="${escapeAttribute(result.url)}" target="_blank" rel="noreferrer">${escapeHtml(result.title)}</a>
+              <span class="evidence-rank">${Math.round(result.relevanceScore || 0)}%</span>
+            </div>
             <p>${escapeHtml(result.description || "Public evidence result returned for clinician review.")}</p>
-            <div class="evidence-meta">${escapeHtml(result.source || "Public web")}</div>
+            <p class="evidence-summary"><strong>Key summary:</strong> ${escapeHtml(result.keySummary || "This source appears relevant for clinician review based on its title, snippet, and source type.")}</p>
+            <div class="evidence-meta">${escapeHtml(result.rankReason || "Ranked by source quality and clinical term overlap.")}</div>
+            <div class="matched-terms">
+              ${(result.matchedTerms || []).slice(0, 5).map((term) => `<span>${escapeHtml(term)}</span>`).join("")}
+            </div>
+            <div class="evidence-meta">${escapeHtml(result.source || "Public web")} · ${escapeHtml(result.sourceType || "Public source")}</div>
           </article>
         `,
       )
